@@ -28,11 +28,18 @@ graph LR
 
 ## 导入路径
 
-| 平台 | import 语句 | 实现 |
+当前部署形态：两个 NAPI 模块编进**单个** monolithic so `libreadmigo_native.so`，
+ArkTS 业务侧通过 `requireNapi` 加载并按子命名空间访问。
+
+| 平台 | 加载方式 | 实现 |
 |---|---|---|
 | Node.js (Android prebuild) | `import * as ts from '@readmigo-cn/napi-bridge/typesetting'` | `prebuilds/{platform}-{arch}/readmigo_napi_bridge.node` |
-| ArkTS (Harmony) | `import ts from 'libtypesetting.so'` | NAPI 模块 `nm_modname = "typesetting"` |
-| ArkTS (Harmony) | `import badge from 'libbadge_engine.so'` | NAPI 模块 `nm_modname = "badge_engine"` |
+| ArkTS (Harmony) | `const native = globalThis['requireNapi']('libreadmigo_native.so');` `const ts = native.typesetting;` | NAPI 模块 `nm_modname = "typesetting"`，编进 `libreadmigo_native.so` |
+| ArkTS (Harmony) | `const native = globalThis['requireNapi']('libreadmigo_native.so');` `const badge = native.badge_engine;` | NAPI 模块 `nm_modname = "badge_engine"`，编进 `libreadmigo_native.so` |
+
+真实加载封装见 `entry/src/main/ets/core/native/{typesetting,badge-engine}.ets`。如未来
+按引擎拆成两个独立 .so，`requireNapi('libtypesetting.so')` / `requireNapi('libbadge_engine.so')`
+即可直接生效，stubs/index.ets.d.ts 顶部注释也已写明回退路径。
 
 ## 当前导出函数
 

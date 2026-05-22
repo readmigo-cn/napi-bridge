@@ -7,10 +7,28 @@
 //   1. ArkTS 不支持 branded type → handle 用 opaque 标记接口
 //   2. ArkTS 不支持 const enum / function overloading 重载 → 用 const object
 //      + 联合类型 + 可选参数
-//   3. 模块名跟 native_api 注册的 nm_modname 对应：
-//        - "typesetting"   → ArkTS:  import ts from 'libtypesetting.so'
-//        - "badge_engine"  → ArkTS:  import badge from 'libbadge_engine.so'
-//   4. 任何 .cpp 改动必须同步本文件，并跑 tsc parse 检查（README 写了一行）
+//   3. 任何 .cpp 改动必须同步本文件，并跑 tsc parse 检查（README 写了一行）
+//
+// 运行时加载（重要）
+// -----------------
+// 当前部署形态：两个 NAPI 模块编进 **单个** monolithic so：
+//     entry/libs/arm64-v8a/libreadmigo_native.so
+//
+// ArkTS 业务侧通过 requireNapi 加载，子命名空间访问：
+//
+//     const native: { typesetting?: object; badge_engine?: object } =
+//         globalThis['requireNapi']('libreadmigo_native.so');
+//     const ts = native.typesetting;     // 对应下面 'libreadmigo_native.so/typesetting' 块
+//     const badge = native.badge_engine; // 对应下面 'libreadmigo_native.so/badge_engine' 块
+//
+// 真实示例参考：
+//   entry/src/main/ets/core/native/typesetting.ets
+//   entry/src/main/ets/core/native/badge-engine.ets
+//
+// 下面两个 declare module 的字符串是"虚构子路径"，仅用于在本 stub 中
+// 把两个子命名空间的类型分开声明；ArkTS 运行时不会用 declare module 字符串
+// 解析 import path（NAPI 走 requireNapi，不走 ESM resolve）。如未来拆成
+// 两个独立 .so，把字符串改回 'libtypesetting.so' / 'libbadge_engine.so' 即可。
 //
 // 同步源：本文件 = stubs/index.d.ts 的 ArkTS 等价物。
 //
@@ -18,7 +36,7 @@
 // ---------------------------------------------------------------------------
 // typesetting 模块
 // ---------------------------------------------------------------------------
-declare module 'libtypesetting.so' {
+declare module 'libreadmigo_native.so/typesetting' {
     /** Opaque 句柄。ArkTS 把 napi_external 当成 object，业务侧请勿伪造 */
     export interface TypesettingHandle {
         readonly __opaque: 'typesetting';
@@ -374,7 +392,7 @@ declare module 'libtypesetting.so' {
 // ---------------------------------------------------------------------------
 // badge_engine 模块
 // ---------------------------------------------------------------------------
-declare module 'libbadge_engine.so' {
+declare module 'libreadmigo_native.so/badge_engine' {
     export interface BadgeHandle {
         readonly __opaque: 'badge_engine';
     }
