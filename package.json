@@ -1,0 +1,32 @@
+{
+  "name": "@readmigo-cn/napi-bridge",
+  "version": "0.1.0",
+  "description": "NAPI bridge for Readmigo CN native engines (typesetting / badge-engine)",
+  "main": "stubs/index.js",
+  "types": "stubs/index.d.ts",
+  "binary": {
+    "module_name": "readmigo_napi_bridge",
+    "module_path": "./prebuilds/{platform}-{arch}/",
+    "host": "https://repo-codearts.cn-north-4.myhuaweicloud.com/repository/npm/"
+  },
+  "scripts": {
+    "build": "cmake -S . -B build && cmake --build build -j",
+    "prebuild": "prebuildify --napi --strip --platform=android --arch=arm64",
+    "typecheck": "if [ -f stubs/index.d.ts ]; then tsc stubs/index.d.ts --noEmit; else echo 'no stubs yet — TODO: add stubs/index.d.ts'; fi"
+  },
+  "files": [
+    "prebuilds",
+    "stubs",
+    "include",
+    "README.md"
+  ],
+  "devDependencies": {
+    "node-addon-api": "^8.0.0",
+    "prebuildify": "^6.0.0",
+    "typescript": "^5.5.0"
+  },
+  "publishConfig": {
+    "registry": "https://repo-codearts.cn-north-4.myhuaweicloud.com/repository/npm/",
+    "access": "restricted"
+  }
+}

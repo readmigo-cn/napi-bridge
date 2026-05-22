@@ -1,4 +1,4 @@
-name: CI - C++ Build
+name: CI - C++ Build & Stub Check
 
 on:
   push:
@@ -9,6 +9,12 @@ on:
       - main
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Host-platform C++ syntax / compile check.
+  # Full OHOS NDK compilation requires a self-hosted runner with the Harmony
+  # toolchain installed. This job uses the standard ubuntu runner to verify
+  # that the bridge C++ code compiles cleanly on the host (OHOS_BUILD=OFF).
+  # ---------------------------------------------------------------------------
   cpp-build:
     runs-on: ubuntu-latest
     steps:
@@ -20,29 +26,77 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build clang
 
-      # 注意：完整鸿蒙 NDK 编译只能在装有 OHOS_NDK 的 runner 跑（自托管或本地）
-      # CI 这步只做 host 平台 syntax / link 校验，验证桥接 C++ 代码本身没编译错
-      - name: Configure (host check)
-        run: |
-          cmake -S . -B build-ci -DOHOS_BUILD=OFF -G Ninja || true
+      # Build with OHOS_BUILD=OFF so HarmonyOS-specific symbols are excluded.
+      # A configuration failure IS a real error — no || true.
+      - name: Configure (host syntax check)
+        run: cmake -S . -B build-ci -DOHOS_BUILD=OFF -G Ninja
 
       - name: Build (host syntax check)
         run: |
           if [ -f build-ci/build.ninja ]; then
-            cmake --build build-ci -j 2>&1 | tee build.log || true
+            cmake --build build-ci -j 2>&1 | tee build.log
+          else
+            echo "ERROR: build.ninja not generated; configure step must have failed." >&2
+            exit 1
           fi
 
-      - name: Lint headers
-        run: |
-          find include src -name '*.h' -o -name '*.cpp' | head -20
+      - name: Lint headers (list discovered files)
+        run: find include src -name '*.h' -o -name '*.cpp' | head -30
 
+  # ---------------------------------------------------------------------------
+  # Job 2: ArkTS stub consistency check.
+  # Ensures stubs/index.d.ts (when present) exposes every NAPI method name
+  # that is registered in the C++ source files.
+  # ---------------------------------------------------------------------------
   arkts-stub-check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify ArkTS stub files
+      - name: Verify stubs directory exists
+        run: test -d stubs
+
+      # TypeScript type-check: only runs if stubs/index.d.ts exists.
+      - name: Setup Node.js (for typecheck)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Typecheck stubs (if present)
+        run: npm run typecheck
+
+      # Consistency check: every NAPI method registered via napi_property_descriptor
+      # in src/*.cpp must appear (by name) in stubs/index.d.ts.
+      # This catches the common mistake of adding a C++ export without updating
+      # the TypeScript declarations.
+      - name: Check NAPI method names are declared in stubs
         run: |
-          test -d stubs || (echo "stubs/ missing"; exit 1)
-          echo "stubs ok"
+          set -e
+
+          STUB_FILE="stubs/index.d.ts"
+          if [ ! -f "$STUB_FILE" ]; then
+            echo "WARNING: $STUB_FILE not found — skipping NAPI/stub consistency check."
+            echo "TODO: create stubs/index.d.ts with declarations for all exported methods."
+            exit 0
+          fi
+
+          # Extract method names registered in napi_property_descriptor arrays.
+          # Pattern: {"methodName", nullptr, CFunction, ...}
+          METHODS=$(grep -ohP '"\K[a-zA-Z][a-zA-Z0-9_]+(?=",\s*nullptr,\s*[A-Z][a-zA-Z]+,)' \
+            src/*.cpp src/**/*.cpp 2>/dev/null | sort -u)
+
+          MISSING=""
+          for method in $METHODS; do
+            if ! grep -q "$method" "$STUB_FILE"; then
+              MISSING="$MISSING $method"
+            fi
+          done
+
+          if [ -n "$MISSING" ]; then
+            echo "ERROR: The following NAPI methods are registered in C++ but missing from $STUB_FILE:"
+            for m in $MISSING; do echo "  - $m"; done
+            exit 1
+          fi
+
+          echo "Stub consistency check passed. All registered NAPI methods found in $STUB_FILE."

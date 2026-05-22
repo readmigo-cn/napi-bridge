@@ -1,0 +1,113 @@
+name: Mirror from GitHub
+
+# Syncs upstream GitHub repos into this Gitee mirror on a schedule and on
+# manual trigger. Both source repos live under github.com/readmigo/:
+#   - typesetting  (C++ typesetting engine — mirrors into src/typesetting branch)
+#   - badge-engine (C++ badge rendering engine — mirrors into src/badge-engine branch)
+#
+# Required Gitee Actions secrets:
+#   GITEE_MIRROR_URL    - Full Gitee remote URL with embedded auth token, e.g.:
+#                           https://<gitee-username>:<gitee-personal-token>@gitee.com/readmigo-cn/napi-bridge.git
+#                         This is used as the push target so the runner can
+#                         write back to the Gitee repo.
+#   GITHUB_MIRROR_TOKEN - Personal Access Token with read:repo scope on GitHub,
+#                         used to authenticate fetches from private upstream repos.
+#                         If upstreams are public, this secret can be left empty
+#                         (the fetch URL below will use unauthenticated HTTPS).
+#   WECOM_WEBHOOK_URL   - WeCom (企业微信) bot webhook URL for failure alerts.
+#                         Format: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=<key>
+
+on:
+  schedule:
+    # Run every hour at minute 0
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    # Allow manual trigger from Gitee Actions UI
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Gitee repo (shallow)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # Configure git identity for any merge commits the mirror operation might
+      # create (normally only fast-forward pushes happen, but be safe).
+      - name: Configure git identity
+        run: |
+          git config user.email "ci-mirror@readmigo.cn"
+          git config user.name "Readmigo Mirror Bot"
+
+      # ---------------------------------------------------------------------------
+      # Mirror: github.com/readmigo/typesetting → branch upstream/typesetting
+      # ---------------------------------------------------------------------------
+      - name: Mirror typesetting from GitHub
+        env:
+          GITHUB_MIRROR_TOKEN: ${{ secrets.GITHUB_MIRROR_TOKEN }}
+          GITEE_MIRROR_URL: ${{ secrets.GITEE_MIRROR_URL }}
+        run: |
+          set -e
+
+          # Build the fetch URL. If token is set, embed it; otherwise use plain HTTPS.
+          if [ -n "$GITHUB_MIRROR_TOKEN" ]; then
+            TYPESETTING_URL="https://${GITHUB_MIRROR_TOKEN}@github.com/readmigo/typesetting.git"
+          else
+            TYPESETTING_URL="https://github.com/readmigo/typesetting.git"
+          fi
+
+          git remote add github-typesetting "$TYPESETTING_URL" 2>/dev/null || true
+          git fetch github-typesetting main:upstream/typesetting --no-tags
+
+          git remote add gitee-mirror "$GITEE_MIRROR_URL" 2>/dev/null || true
+          git push gitee-mirror upstream/typesetting --force-with-lease
+
+          echo "typesetting mirror: OK"
+
+      # ---------------------------------------------------------------------------
+      # Mirror: github.com/readmigo/badge-engine → branch upstream/badge-engine
+      # ---------------------------------------------------------------------------
+      - name: Mirror badge-engine from GitHub
+        env:
+          GITHUB_MIRROR_TOKEN: ${{ secrets.GITHUB_MIRROR_TOKEN }}
+          GITEE_MIRROR_URL: ${{ secrets.GITEE_MIRROR_URL }}
+        run: |
+          set -e
+
+          if [ -n "$GITHUB_MIRROR_TOKEN" ]; then
+            BADGE_URL="https://${GITHUB_MIRROR_TOKEN}@github.com/readmigo/badge-engine.git"
+          else
+            BADGE_URL="https://github.com/readmigo/badge-engine.git"
+          fi
+
+          git remote add github-badge-engine "$BADGE_URL" 2>/dev/null || true
+          git fetch github-badge-engine main:upstream/badge-engine --no-tags
+
+          git push gitee-mirror upstream/badge-engine --force-with-lease
+
+          echo "badge-engine mirror: OK"
+
+      # ---------------------------------------------------------------------------
+      # On failure: send WeCom alert
+      # ---------------------------------------------------------------------------
+      - name: Alert WeCom on failure
+        if: failure()
+        env:
+          WECOM_WEBHOOK_URL: ${{ secrets.WECOM_WEBHOOK_URL }}
+        run: |
+          if [ -z "$WECOM_WEBHOOK_URL" ]; then
+            echo "WECOM_WEBHOOK_URL not set — skipping alert"
+            exit 0
+          fi
+
+          TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          curl -s -X POST "$WECOM_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"msgtype\": \"text\",
+              \"text\": {
+                \"content\": \"[Mirror Alert] napi-bridge GitHub→Gitee mirror FAILED\nTime: ${TIMESTAMP}\nRepo: napi-bridge\nCheck Gitee Actions logs for details.\"
+              }
+            }"

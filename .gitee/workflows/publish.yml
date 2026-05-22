@@ -1,0 +1,71 @@
+name: Publish to Huawei Cloud CodeArts
+
+# Triggers on version tags, e.g.:
+#   npm version patch && git push --follow-tags
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Required Gitee Actions secrets:
+#   HUAWEI_CODEARTS_TOKEN  - CodeArts Artifact push token (npm Bearer token)
+#                            Obtained from: CodeArts → Artifact → your npm repo → Settings → Token
+#
+# Note on prebuildify / OHOS NDK:
+#   The standard ubuntu-latest runner does NOT have the HarmonyOS NDK installed.
+#   `npm run prebuild` (cross-compile for OHOS arm64) will therefore fail on the
+#   hosted runner. The step below captures this gracefully:
+#     - If prebuild succeeds (self-hosted runner with OHOS NDK), the .node
+#       binaries are included in the published package under prebuilds/.
+#     - If prebuild fails (no NDK), only a warning is emitted. Developers who
+#       need to ship prebuilds must run `npm run prebuild` locally (or on a
+#       self-hosted runner) and push the resulting prebuilds/ directory to the
+#       release branch before triggering this workflow.
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install npm dependencies
+        run: npm install
+
+      # Attempt to cross-compile prebuilds for OHOS arm64.
+      # Fails gracefully if OHOS NDK is unavailable on this runner.
+      - name: Build prebuilds (OHOS arm64)
+        run: |
+          if npm run prebuild; then
+            echo "Prebuild succeeded — prebuilds/ will be included in the package."
+          else
+            echo "WARNING: prebuild step failed (likely missing OHOS NDK on this runner)."
+            echo "If you need prebuilt binaries in the published artifact, run"
+            echo "  npm run prebuild"
+            echo "on a machine with the HarmonyOS NDK, commit the prebuilds/ output,"
+            echo "and re-push the tag."
+          fi
+
+      # Write a workspace-local .npmrc with the real CodeArts token.
+      # This overrides the placeholder token in the committed .npmrc file.
+      - name: Configure .npmrc for CodeArts registry
+        env:
+          HUAWEI_CODEARTS_TOKEN: ${{ secrets.HUAWEI_CODEARTS_TOKEN }}
+        run: |
+          cat > .npmrc <<EOF
+          @readmigo-cn:registry=https://repo-codearts.cn-north-4.myhuaweicloud.com/repository/npm/
+          //repo-codearts.cn-north-4.myhuaweicloud.com/repository/npm/:_authToken=${HUAWEI_CODEARTS_TOKEN}
+          strict-ssl=true
+          EOF
+
+      - name: Publish to CodeArts Artifact
+        run: npm publish --access restricted
