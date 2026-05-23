@@ -1,7 +1,7 @@
 # napi-bridge
 
 > HarmonyOS NEXT NAPI bridge：C++ ↔ ArkTS 边界层
-> Gitee: https://github.com/readmigo-cn/napi-bridge
+> GitHub: https://github.com/readmigo-cn/napi-bridge
 > 上游被引用方：[`apps/harmony-app`](https://github.com/readmigo-cn/readmigo-cn-repos)
 > 下游引擎：[`typesetting`](https://github.com/readmigo/typesetting) · [`badge-engine`](https://github.com/readmigo/badge-engine)
 
