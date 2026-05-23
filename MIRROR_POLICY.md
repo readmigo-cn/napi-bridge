@@ -69,7 +69,7 @@ Configure these in **Gitee repo → Settings → Actions → Secrets**:
 
 | Secret | Description |
 |--------|-------------|
-| `GITEE_MIRROR_URL` | Full Gitee push URL with embedded auth token: `https://<user>:<token>@gitee.com/readmigo-cn/napi-bridge.git` |
+| `GITEE_MIRROR_URL` | Full Gitee push URL with embedded auth token: `https://<user>:<token>@github.com/readmigo-cn/napi-bridge.git` |
 | `GITHUB_MIRROR_TOKEN` | GitHub PAT with `read:repo` scope (omit if upstreams are public) |
 | `WECOM_WEBHOOK_URL` | WeCom bot webhook for failure alerts: `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=<key>` |
 | `HUAWEI_CODEARTS_TOKEN` | CodeArts Artifact npm push token (used by `publish.yml`, not mirror) |

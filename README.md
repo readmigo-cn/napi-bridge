@@ -1,11 +1,11 @@
 # napi-bridge
 
 > HarmonyOS NEXT NAPI bridge：C++ ↔ ArkTS 边界层
-> Gitee: https://gitee.com/readmigo/napi-bridge
-> 上游被引用方：[`apps/harmony-app`](https://gitee.com/readmigo/readmigo-cn-repos)
-> 下游引擎：[`typesetting`](https://gitee.com/readmigo/typesetting) · [`badge-engine`](https://gitee.com/readmigo/badge-engine)
+> Gitee: https://github.com/readmigo-cn/napi-bridge
+> 上游被引用方：[`apps/harmony-app`](https://github.com/readmigo-cn/readmigo-cn-repos)
+> 下游引擎：[`typesetting`](https://github.com/readmigo/typesetting) · [`badge-engine`](https://github.com/readmigo/badge-engine)
 
-W23 从 monorepo `gitee.com/readmigo/readmigo-cn-repos` 拆出（filter-repo subdirectory）。
+W23 从 monorepo `github.com/readmigo-cn/readmigo-cn-repos` 拆出（filter-repo subdirectory）。
 
 ## 定位
 

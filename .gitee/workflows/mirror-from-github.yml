@@ -7,7 +7,7 @@ name: Mirror from GitHub
 #
 # Required Gitee Actions secrets:
 #   GITEE_MIRROR_URL    - Full Gitee remote URL with embedded auth token, e.g.:
-#                           https://<gitee-username>:<gitee-personal-token>@gitee.com/readmigo-cn/napi-bridge.git
+#                           https://<gitee-username>:<gitee-personal-token>@github.com/readmigo-cn/napi-bridge.git
 #                         This is used as the push target so the runner can
 #                         write back to the Gitee repo.
 #   GITHUB_MIRROR_TOKEN - Personal Access Token with read:repo scope on GitHub,

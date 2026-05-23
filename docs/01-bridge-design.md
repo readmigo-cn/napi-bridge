@@ -113,4 +113,4 @@ ArkTS 业务侧通过 `requireNapi` 加载并按子命名空间访问。
 4. 升 `napi-bridge-vX.Y.Z` 标签（SemVer 规则见 `CONTRACT.md`）
 5. monorepo `apps/harmony-app/oh-package.json5` 引用新版本
 
-详见 [04-native-engine-sync-strategy.md](https://gitee.com/readmigo/readmigo-cn-repos/blob/main/docs/architecture/04-native-engine-sync-strategy.md) 和本仓 [CONTRACT.md](./CONTRACT.md)。
+详见 [04-native-engine-sync-strategy.md](https://github.com/readmigo-cn/readmigo-cn-repos/blob/main/docs/architecture/04-native-engine-sync-strategy.md) 和本仓 [CONTRACT.md](./CONTRACT.md)。
